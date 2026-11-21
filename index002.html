@@ -1,0 +1,959 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>日常のなかの「食べて取り込む」感覚</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=DotGothic16&family=Silkscreen:wght@400;700&family=Shippori+Mincho:wght@400;500&display=swap');
+
+    :root {
+      --bg-light: #f3f2ee;
+      --bg-vivid-green: #4ce85c;
+      --ink-dark: #111311;
+      --ink-muted: rgba(17, 19, 17, 0.52);
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    html {
+      scroll-behavior: smooth;
+    }
+
+    body {
+      background-color: var(--bg-light);
+      color: var(--ink-dark);
+      font-family: 'DotGothic16', 'Shippori Mincho', sans-serif;
+      overflow-x: hidden;
+      transition: background-color 0.85s cubic-bezier(0.22, 1, 0.36, 1),
+                  color 0.85s cubic-bezier(0.22, 1, 0.36, 1);
+    }
+
+    /* 文章パートに入ると、鮮やかなビビッドグリーンへ切り替わる */
+    body.green-phase {
+      background-color: var(--bg-vivid-green);
+      color: var(--ink-dark);
+    }
+
+    /* フォトグラメトリ点群用 WebGL キャンバス */
+    #pointcloud-stage {
+      position: fixed;
+      inset: 0;
+      width: 100vw;
+      height: 100vh;
+      z-index: 6;
+      pointer-events: none;
+      transition: opacity 0.8s ease;
+    }
+
+    body.green-phase #pointcloud-stage {
+      opacity: 0.2;
+    }
+
+    /* 固定ヘッダー */
+    .gallery-header {
+      position: fixed;
+      top: 0;
+      right: 0;
+      z-index: 20;
+      padding: 28px 40px;
+      display: flex;
+      justify-content: flex-end;
+      align-items: center;
+      pointer-events: none;
+    }
+
+    .nav-ticks {
+      pointer-events: auto;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+
+    .tick {
+      width: 14px;
+      height: 2px;
+      background: var(--ink-dark);
+      opacity: 0.24;
+      cursor: pointer;
+      transition: all 0.35s ease;
+      position: relative;
+    }
+
+    .tick::before {
+      content: '';
+      position: absolute;
+      inset: -8px 0;
+    }
+
+    .tick.active {
+      width: 28px;
+      opacity: 0.95;
+    }
+
+    /* ============================================================
+       PART 1: 白空間のフォトグラメトリ点群展示（縦長スクロール）
+    ============================================================ */
+    .specimen-track {
+      position: relative;
+      z-index: 2;
+    }
+
+    .specimen-section {
+      height: 112vh;
+      width: 100%;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+      padding: 0 24px;
+      user-select: none;
+    }
+
+    .behind-typography {
+      text-align: center;
+      transform: translateY(-2vh);
+    }
+
+    .specimen-index {
+      font-family: 'Silkscreen', monospace;
+      font-size: 11px;
+      letter-spacing: 0.32em;
+      opacity: 0.45;
+      display: block;
+      margin-bottom: 18px;
+    }
+
+    .specimen-title-en {
+      font-family: 'Silkscreen', monospace;
+      font-weight: 400;
+      font-size: clamp(32px, 6.4vw, 84px);
+      letter-spacing: 0.14em;
+      line-height: 1.1;
+      color: rgba(17, 19, 17, 0.16);
+    }
+
+    .specimen-title-ja {
+      font-family: 'DotGothic16', sans-serif;
+      font-size: clamp(14px, 1.5vw, 18px);
+      font-weight: 400;
+      letter-spacing: 0.32em;
+      margin-top: 20px;
+      opacity: 0.62;
+    }
+
+    .scroll-hint {
+      position: absolute;
+      bottom: 32px;
+      left: 40px;
+      font-family: 'Silkscreen', monospace;
+      font-size: 10px;
+      letter-spacing: 0.22em;
+      opacity: 0.5;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .scroll-hint span.bar {
+      width: 28px;
+      height: 2px;
+      background: currentColor;
+      display: inline-block;
+    }
+
+    /* ============================================================
+       PART 2: ビビッドグリーンの思索空間
+    ============================================================ */
+    .discourse-space {
+      position: relative;
+      z-index: 15;
+      min-height: 100vh;
+      padding: 16vh 40px 15vh;
+      max-width: 1080px;
+      margin: 0 auto;
+    }
+
+    .discourse-kicker {
+      font-family: 'Silkscreen', 'DotGothic16', monospace;
+      font-size: 11px;
+      letter-spacing: 0.2em;
+      color: var(--ink-dark);
+      background: rgba(255, 255, 255, 0.55);
+      padding: 6px 12px;
+      margin-bottom: 36px;
+      display: inline-block;
+    }
+
+    .interactive-manifesto {
+      font-family: 'DotGothic16', sans-serif;
+      font-size: clamp(15px, 1.45vw, 18.5px);
+      line-height: 2.3;
+      letter-spacing: 0.06em;
+      color: rgba(17, 19, 17, 0.55);
+      max-width: 780px;
+      margin-bottom: 42px;
+    }
+
+    .manifesto-line {
+      transition: color 0.5s ease;
+      margin-bottom: 20px;
+    }
+
+    .manifesto-line.in-focus {
+      color: var(--ink-dark);
+    }
+
+    .term-trigger {
+      color: var(--ink-dark);
+      background: rgba(255, 255, 255, 0.45);
+      border-bottom: 2px solid var(--ink-dark);
+      cursor: pointer;
+      padding: 2px 6px;
+      transition: all 0.25s ease;
+    }
+
+    .term-trigger:hover,
+    .term-trigger.is-selected {
+      background: var(--ink-dark);
+      color: var(--bg-vivid-green);
+      border-bottom-color: var(--ink-dark);
+    }
+
+    /* 選択されたキーワードの余白注釈 */
+    .margin-note-drawer {
+      min-height: 96px;
+      border-left: 3px solid var(--ink-dark);
+      margin-bottom: 92px;
+      max-width: 700px;
+      background: rgba(255, 255, 255, 0.52);
+      padding: 20px 24px;
+    }
+
+    .margin-note-label {
+      font-family: 'Silkscreen', 'DotGothic16', monospace;
+      font-size: 11px;
+      letter-spacing: 0.16em;
+      color: var(--ink-dark);
+      margin-bottom: 10px;
+      opacity: 0.72;
+    }
+
+    .margin-note-text {
+      font-family: 'DotGothic16', sans-serif;
+      font-size: 14px;
+      line-height: 2.05;
+      color: var(--ink-dark);
+    }
+
+    /* 5つの標本インデックス（左：解説ビュー ／ 右：リスト） */
+    .archive-split {
+      display: grid;
+      grid-template-columns: 0.95fr 1.05fr;
+      gap: 64px;
+      align-items: start;
+      border-top: 2px solid rgba(17, 19, 17, 0.24);
+      padding-top: 52px;
+    }
+
+    /* 左側：選択標本の解説ビュー */
+    .specimen-reading-pane {
+      position: sticky;
+      top: 22vh;
+      background: rgba(255, 255, 255, 0.56);
+      padding: 28px 30px;
+      border: 1px solid rgba(17, 19, 17, 0.2);
+    }
+
+    .reading-code {
+      font-family: 'Silkscreen', monospace;
+      font-size: 10px;
+      letter-spacing: 0.18em;
+      color: rgba(17, 19, 17, 0.65);
+      margin-bottom: 12px;
+    }
+
+    .reading-title {
+      font-family: 'DotGothic16', sans-serif;
+      font-size: 20px;
+      font-weight: 400;
+      letter-spacing: 0.08em;
+      margin-bottom: 18px;
+      color: var(--ink-dark);
+    }
+
+    .reading-fragment {
+      font-family: 'DotGothic16', sans-serif;
+      font-size: 14px;
+      line-height: 2.1;
+      color: var(--ink-dark);
+      margin-bottom: 18px;
+    }
+
+    .reading-origin {
+      font-family: 'DotGothic16', sans-serif;
+      font-size: 12.5px;
+      line-height: 1.9;
+      color: rgba(17, 19, 17, 0.72);
+    }
+
+    /* 右側：5つのリスト */
+    .specimen-index-list {
+      list-style: none;
+    }
+
+    .specimen-row {
+      padding: 20px 12px;
+      border-bottom: 1px solid rgba(17, 19, 17, 0.22);
+      cursor: pointer;
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      gap: 16px;
+      transition: padding-right 0.3s cubic-bezier(0.16, 1, 0.3, 1), background-color 0.25s;
+      color: rgba(17, 19, 17, 0.68);
+    }
+
+    .specimen-row:hover,
+    .specimen-row.active {
+      padding-right: 22px;
+      background: rgba(255, 255, 255, 0.48);
+      color: var(--ink-dark);
+    }
+
+    .row-left {
+      display: flex;
+      align-items: baseline;
+      gap: 16px;
+    }
+
+    .row-num {
+      font-family: 'Silkscreen', monospace;
+      font-size: 11px;
+      letter-spacing: 0.14em;
+      color: var(--ink-dark);
+    }
+
+    .row-title-ja {
+      font-family: 'DotGothic16', sans-serif;
+      font-size: 16px;
+      letter-spacing: 0.08em;
+    }
+
+    .row-title-en {
+      font-family: 'Silkscreen', monospace;
+      font-size: 11px;
+      letter-spacing: 0.1em;
+      opacity: 0.65;
+    }
+
+    .return-top-link {
+      display: inline-block;
+      margin-top: 84px;
+      font-family: 'DotGothic16', sans-serif;
+      font-size: 12px;
+      letter-spacing: 0.2em;
+      color: var(--ink-dark);
+      text-decoration: none;
+      border-bottom: 2px solid var(--ink-dark);
+      padding-bottom: 6px;
+      transition: all 0.25s;
+    }
+
+    .return-top-link:hover {
+      background: var(--ink-dark);
+      color: var(--bg-vivid-green);
+      padding: 6px 12px;
+    }
+
+    @media (max-width: 860px) {
+      .gallery-header {
+        padding: 20px 22px;
+      }
+      .discourse-space {
+        padding: 14vh 22px 12vh;
+      }
+      .archive-split {
+        grid-template-columns: 1fr;
+        gap: 32px;
+      }
+      .specimen-reading-pane {
+        position: static;
+      }
+      .scroll-hint {
+        left: 22px;
+      }
+    }
+  </style>
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://unpkg.com/three@0.160.0/build/three.module.js"
+      }
+    }
+  </script>
+</head>
+<body>
+  <!-- フォトグラメトリ点群 WebGL ステージ -->
+  <div id="pointcloud-stage"></div>
+
+  <!-- 最小限の固定ナビ -->
+  <header class="gallery-header">
+    <div class="nav-ticks" id="navTicks"></div>
+  </header>
+
+  <!-- PART 1: 白空間の縦長スクロール（タイトルは点群モデルの背後） -->
+  <main class="specimen-track" id="specimenTrack"></main>
+
+  <!-- PART 2: 生命を感じるビビッドグリーンの思索空間 -->
+  <section class="discourse-space" id="discourseSpace">
+    <span class="discourse-kicker">ABOUT THIS THEME // 日常のなかの「食べて取り込む」感覚</span>
+
+    <div class="interactive-manifesto" id="manifestoBlock">
+      <p class="manifesto-line in-focus">
+        キリスト教のミサで、パンをキリストの肉だと思って食べること。
+        尊い存在や神聖なものの力を自分の中に取り入れたいというその発想は、
+        <span class="term-trigger is-selected" data-term="cannibalism">「日常に潜むカニバリズム的思考」</span>とも呼ばれます。
+      </p>
+      <p class="manifesto-line">
+        けれどそれは、決して特別な儀式だけではなく、
+        私たちが普段の暮らしの中で自然と持っている感覚のひとつかもしれません。
+      </p>
+      <p class="manifesto-line">
+        たとえば、<span class="term-trigger" data-term="rice">お米一粒に宿る七人の神様</span>を大切にいただくこと。
+        正月に神様が宿った<span class="term-trigger" data-term="yorishiro">鏡餅</span>を割って食べること。
+        お守りの文字を水で飲む<span class="term-trigger" data-term="kotodama">「呑符（とんぷ）」</span>や、
+        憧れの人の<span class="term-trigger" data-term="contagion">「爪の垢を煎じて飲む」</span>という言葉まで。
+        「食べることで大切なものの力や願いを受け取る」という考え方は、今も私たちの身近に息づいています。
+      </p>
+    </div>
+
+    <!-- 言葉に触れると切り替わる注釈 -->
+    <div class="margin-note-drawer">
+      <div class="margin-note-label" id="marginLabel">NOTE // 日常に潜むカニバリズム的思考</div>
+      <div class="margin-note-text" id="marginText">
+        敬愛する相手や神聖な存在の一部（またはその象徴）を食べることで、その力や加護を自分のものにしたいと願う人間の自然な思考のこと。
+      </div>
+    </div>
+
+    <!-- 5つの標本インデックス（左：解説ビュー ／ 右：リスト） -->
+    <div class="archive-split">
+      <div class="specimen-reading-pane">
+        <div class="reading-code" id="readingCode">01 // WESTERN ART &amp; MASS</div>
+        <h3 class="reading-title" id="readingTitle">聖体のパン（ホスチア）</h3>
+        <p class="reading-fragment" id="readingFragment">
+          ミサで司祭から手渡される薄いパン。信仰する人々はこれを単なる食べ物ではなく「キリストの体そのもの」として受け取り、口にすることで神様とひとつになり、守られているという安心感を得ます。
+        </p>
+        <p class="reading-origin" id="readingOrigin">
+          「取って食べなさい。これはわたしの体である。」—— 聖書の言葉より
+        </p>
+      </div>
+
+      <ul class="specimen-index-list" id="specimenIndexList"></ul>
+    </div>
+
+    <a href="#scan-0" class="return-top-link">↑ 最初の標本へ戻る</a>
+  </section>
+
+  <script type="module">
+    import * as THREE from 'three';
+
+    /**
+     * 1. データ定義
+     */
+    const SPECIMENS = [
+      {
+        num: 'SCAN 01',
+        code: '01 // WESTERN ART & MASS',
+        en: 'THE HOSTIA',
+        ja: '聖体のパン（ホスチア）',
+        fragment: 'ミサで司祭から手渡される薄いパン。信仰する人々はこれを単なる食べ物ではなく「キリストの体そのもの」として受け取り、口にすることで神様とひとつになり、守られている。',
+        origin: '「取って食べなさい。これはわたしの体である。」—— 聖書の言葉より'
+      },
+      {
+        num: 'SCAN 02',
+        code: '02 // EVERYDAY TABLE',
+        en: 'SEVEN DEITIES',
+        ja: '一粒の米に宿る七人の神',
+        fragment: '「お米一粒には七人の神様がいるから残さず食べなさい」という日本の身近な教え。毎日のごはんを噛みしめることは、自然の恵みや神様の力を自分の体の中へ迎え入れる習慣でもある。',
+        origin: '身近な食べ物に神様の存在を感じ、感謝していただく日本の暮らしの感覚。'
+      },
+      {
+        num: 'SCAN 03',
+        code: '03 // TALISMANIC RITE',
+        en: 'THE TALISMAN',
+        ja: '呑符（とんぷ）— 護符を飲む',
+        fragment: '神様や仏様の名前、願いを込めた文字を書いた和紙のお守りを丸めて、水と一緒に飲み込む昔の風習です。お守りをただ持つだけでなく体の中に入れることで、内側から守ってもらおうとする発想。',
+        origin: '言葉や文字に宿る力を、食べ物のように飲み込んで受け取る日本や東アジアの習俗。'
+      },
+      {
+        num: 'SCAN 04',
+        code: '04 // SEASONAL CUSTOM',
+        en: 'KAGAMI-MOCHI',
+        ja: '鏡餅のお下がり（直会）',
+        fragment: 'お正月に年神様が宿る場所として飾った鏡餅を、鏡開きで割ってお雑煮などにして食べる行事。神様が触れたお餅をみんなで分けて食べることで、その一年の健康を分けてもらう。',
+        origin: '神様にお供えしたものを下げていただく「直会（なおらい）」という身近な文化。'
+      },
+      {
+        num: 'SCAN 05',
+        code: '05 // EVERYDAY IDIOM',
+        en: 'INFUSED ESSENCE',
+        ja: '爪の垢を煎じて飲む',
+        fragment: 'すごい人や憧れの人のようになりたいとき、「あの人の爪の垢でも煎じて飲みたい」と言う日本の慣用句。相手の一部を飲み物にして取り込めば、その人の才能や良さが自分にも移るのではないかという素朴な願いが込められている。',
+        origin: '普段の会話の中で誰もが使う言葉にも、「取り込んであやかりたい」という感覚が残っている。'
+      }
+    ];
+
+    const TERM_NOTES = {
+      cannibalism: {
+        label: 'NOTE // 日常に潜むカニバリズム的思考',
+        text: '敬愛する相手や神聖な存在の一部（またはその象徴）を食べることで、その力や優しさ、加護を自分のものにしたいと願う人間の自然な思考のこと。'
+      },
+      rice: {
+        label: 'NOTE // お米一粒に宿る七人の神様',
+        text: '昔から日本でよく言われる「米一粒に七人の神様が宿る」という言葉。自然の恵みそのものを神様として敬い、それを食べることで私たちが日々生かされているという考え方。'
+      },
+      yorishiro: {
+        label: 'NOTE // 鏡餅と直会（なおらい）',
+        text: 'お正月の鏡餅は、神様がそこに降りてきて宿る「依り代（よりしろ）」とされている。そのお餅を割って食べることで、神様の力を自分の体に取り込むという、とても身近な年中行事。'
+      },
+      kotodama: {
+        label: 'NOTE // 呑符（とんぷ）の風習',
+        text: 'お守りの和紙を水で飲み込む「呑符」は、文字そのものに力が宿ると信じられていたからこそ生まれた習慣。大切な言葉を体の中へ直接取り込もうとする素直な行動のひとつ。'
+      },
+      contagion: {
+        label: 'NOTE // 「あやかりたい」という気持ち',
+        text: '「爪の垢を煎じて飲む」という表現は、優れた人の持ち物や体の一部にはその人の力が残っているという古い考え方が、現代の日常会話のたとえ話として自然に生き残ったもの。'
+      }
+    };
+
+    /**
+     * 2. DOM構築
+     */
+    const trackEl = document.getElementById('specimenTrack');
+    const ticksEl = document.getElementById('navTicks');
+    const indexListEl = document.getElementById('specimenIndexList');
+
+    SPECIMENS.forEach((sp, idx) => {
+      const sec = document.createElement('section');
+      sec.className = 'specimen-section';
+      sec.id = `scan-${idx}`;
+      sec.innerHTML = `
+        <div class="behind-typography">
+          <span class="specimen-index">${sp.num}</span>
+          <h2 class="specimen-title-en">${sp.en}</h2>
+          <p class="specimen-title-ja">${sp.ja}</p>
+        </div>
+        ${idx === 0 ? `<div class="scroll-hint"><span class="bar"></span>SCROLL DOWN</div>` : ''}
+      `;
+      trackEl.appendChild(sec);
+
+      const tick = document.createElement('div');
+      tick.className = 'tick' + (idx === 0 ? ' active' : '');
+      tick.addEventListener('click', () => sec.scrollIntoView({ behavior: 'smooth' }));
+      ticksEl.appendChild(tick);
+
+      const li = document.createElement('li');
+      li.className = 'specimen-row' + (idx === 0 ? ' active' : '');
+      li.innerHTML = `
+        <div class="row-left">
+          <span class="row-num">0${idx + 1}</span>
+          <span class="row-title-ja">${sp.ja}</span>
+        </div>
+        <span class="row-title-en">${sp.en}</span>
+      `;
+      const activateRow = () => {
+        document.querySelectorAll('.specimen-row').forEach(r => r.classList.remove('active'));
+        li.classList.add('active');
+        document.getElementById('readingCode').textContent = sp.code;
+        document.getElementById('readingTitle').textContent = sp.ja;
+        document.getElementById('readingFragment').textContent = sp.fragment;
+        document.getElementById('readingOrigin').textContent = sp.origin;
+        activeArchiveSpecimen = idx;
+      };
+      li.addEventListener('mouseenter', activateRow);
+      li.addEventListener('click', activateRow);
+      indexListEl.appendChild(li);
+    });
+
+    document.querySelectorAll('.term-trigger').forEach(el => {
+      const showNote = () => {
+        document.querySelectorAll('.term-trigger').forEach(t => t.classList.remove('is-selected'));
+        el.classList.add('is-selected');
+        const note = TERM_NOTES[el.dataset.term];
+        if (note) {
+          document.getElementById('marginLabel').textContent = note.label;
+          document.getElementById('marginText').textContent = note.text;
+        }
+      };
+      el.addEventListener('mouseenter', showNote);
+      el.addEventListener('click', showNote);
+    });
+
+    /**
+     * 3. フォトグラメトリ風・高密度点群（Point Cloud）エンジン
+     */
+    const stageEl = document.getElementById('pointcloud-stage');
+    const scene = new THREE.Scene();
+
+    const camera = new THREE.PerspectiveCamera(32, window.innerWidth / window.innerHeight, 0.1, 100);
+    camera.position.set(0, 0.85, 8.2);
+    camera.lookAt(0, 0, 0);
+
+    const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    stageEl.appendChild(renderer.domElement);
+
+    function createScanDotTexture() {
+      const c = document.createElement('canvas');
+      c.width = 32;
+      c.height = 32;
+      const g = c.getContext('2d');
+      const grad = g.createRadialGradient(16, 16, 0, 16, 16, 15);
+      grad.addColorStop(0, 'rgba(255, 255, 255, 1)');
+      grad.addColorStop(0.55, 'rgba(255, 255, 255, 0.88)');
+      grad.addColorStop(1, 'rgba(255, 255, 255, 0)');
+      g.fillStyle = grad;
+      g.beginPath();
+      g.arc(16, 16, 15, 0, Math.PI * 2);
+      g.fill();
+      return new THREE.CanvasTexture(c);
+    }
+    const scanDotTex = createScanDotTexture();
+
+    function hash3(x, y, z) {
+      const h = Math.sin(x * 127.1 + y * 311.7 + z * 74.7) * 43758.5453123;
+      return h - Math.floor(h);
+    }
+    function smoothNoise(x, y, z) {
+      const ix = Math.floor(x), iy = Math.floor(y), iz = Math.floor(z);
+      const fx = x - ix, fy = y - iy, fz = z - iz;
+      const u = fx * fx * (3 - 2 * fx);
+      const v = fy * fy * (3 - 2 * fy);
+      const w = fz * fz * (3 - 2 * fz);
+      const n000 = hash3(ix, iy, iz), n100 = hash3(ix + 1, iy, iz);
+      const n010 = hash3(ix, iy + 1, iz), n110 = hash3(ix + 1, iy + 1, iz);
+      const n001 = hash3(ix, iy, iz + 1), n101 = hash3(ix + 1, iy, iz + 1);
+      const n011 = hash3(ix, iy + 1, iz + 1), n111 = hash3(ix + 1, iy + 1, iz + 1);
+      const nx00 = n000 + u * (n100 - n000);
+      const nx10 = n010 + u * (n110 - n010);
+      const nx01 = n001 + u * (n101 - n001);
+      const nx11 = n011 + u * (n111 - n011);
+      const nxy0 = nx00 + v * (nx10 - nx00);
+      const nxy1 = nx01 + v * (nx11 - nx01);
+      return nxy0 + w * (nxy1 - nxy0);
+    }
+
+    const lightDir = new THREE.Vector3(0.55, 0.78, 0.45).normalize();
+    const ACCENT_GREEN = { r: 0.298, g: 0.91, b: 0.361 };
+
+    function buildPhotogrammetryCloud(sampleCount, generatorFn, pointSize = 0.021) {
+      const positions = new Float32Array(sampleCount * 3);
+      const colors = new Float32Array(sampleCount * 3);
+
+      for (let i = 0; i < sampleCount; i++) {
+        const res = generatorFn(i, sampleCount);
+        const { pos, normal, accent = 0 } = res;
+
+        const jitter = 0.006;
+        positions[i * 3] = pos.x + (Math.random() - 0.5) * jitter;
+        positions[i * 3 + 1] = pos.y + (Math.random() - 0.5) * jitter;
+        positions[i * 3 + 2] = pos.z + (Math.random() - 0.5) * jitter;
+
+        const ndotl = Math.max(0, normal.normalize().dot(lightDir));
+        const ao = Math.max(0, Math.min(1, (pos.y + 1.4) / 2.6));
+        const shade = 0.36 + ndotl * 0.44 + ao * 0.14;
+
+        if (accent > 0.5) {
+          const glow = 0.85 + ndotl * 0.25;
+          colors[i * 3] = Math.min(1, ACCENT_GREEN.r * glow);
+          colors[i * 3 + 1] = Math.min(1, ACCENT_GREEN.g * glow);
+          colors[i * 3 + 2] = Math.min(1, ACCENT_GREEN.b * glow);
+        } else {
+          colors[i * 3] = shade;
+          colors[i * 3 + 1] = shade * 0.985;
+          colors[i * 3 + 2] = shade * 0.955;
+        }
+      }
+
+      const geo = new THREE.BufferGeometry();
+      geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+      geo.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+
+      const mat = new THREE.PointsMaterial({
+        size: pointSize,
+        map: scanDotTex,
+        vertexColors: true,
+        transparent: true,
+        opacity: 0.9,
+        depthWrite: false
+      });
+
+      return new THREE.Points(geo, mat);
+    }
+
+    const galleryGroup = new THREE.Group();
+    scene.add(galleryGroup);
+
+    const SPACING = 6.4;
+    const clouds = [];
+
+    // SCAN 01: 聖体のパン
+    clouds.push(buildPhotogrammetryCloud(22000, (i, total) => {
+      const isEdge = i < total * 0.18;
+      const a = Math.random() * Math.PI * 2;
+      const r = isEdge ? 1.34 + (Math.random() - 0.5) * 0.03 : Math.sqrt(Math.random()) * 1.34;
+      const x = Math.cos(a) * r;
+      const y = Math.sin(a) * r;
+
+      const pores = (smoothNoise(x * 7.5, y * 7.5, 1.2) - 0.5) * 0.045;
+      const inVerticalCross = Math.abs(x) < 0.045 && Math.abs(y) < 0.78;
+      const inHorizontalCross = Math.abs(y - 0.18) < 0.045 && Math.abs(x) < 0.52;
+      const isCross = inVerticalCross || inHorizontalCross;
+      const crossRelief = isCross ? 0.032 : 0;
+      const rimRelief = (r > 1.22 && r < 1.28) ? 0.022 : 0;
+
+      const side = Math.random() > 0.5 ? 1 : -1;
+      const z = isEdge
+        ? (Math.random() - 0.5) * 0.09
+        : side * (0.045 + pores + crossRelief + rimRelief);
+
+      const tilt = -0.26;
+      const py = y * Math.cos(tilt) - z * Math.sin(tilt);
+      const pz = y * Math.sin(tilt) + z * Math.cos(tilt);
+
+      const normal = isEdge
+        ? new THREE.Vector3(Math.cos(a), Math.sin(a), 0.1)
+        : new THREE.Vector3(pores * 8, pores * 8, side);
+
+      return { pos: new THREE.Vector3(x, py, pz), normal, accent: isCross ? 1 : 0 };
+    }, 0.021));
+
+    // SCAN 02: 一粒の米と7人の神
+    const deityCenters = [];
+    for (let k = 0; k < 7; k++) {
+      const ang = (k / 6) * Math.PI * 2;
+      const rad = k === 0 ? 0 : 0.34;
+      deityCenters.push(new THREE.Vector3(Math.cos(ang) * rad, (k - 3) * 0.14, Math.sin(ang) * rad * 0.55));
+    }
+
+    clouds.push(buildPhotogrammetryCloud(22000, (i, total) => {
+      if (i < total * 0.26) {
+        const dIdx = i % 7;
+        const center = deityCenters[dIdx];
+        const u = Math.random() * Math.PI * 2;
+        const v = Math.acos(2 * Math.random() - 1);
+        const rad = (dIdx === 0 ? 0.12 : 0.085) * Math.cbrt(Math.random());
+        const nx = Math.sin(v) * Math.cos(u);
+        const ny = Math.cos(v);
+        const nz = Math.sin(v) * Math.sin(u);
+        return {
+          pos: new THREE.Vector3(center.x + nx * rad, center.y + ny * rad, center.z + nz * rad),
+          normal: new THREE.Vector3(nx, ny, nz),
+          accent: 1
+        };
+      }
+
+      const u = Math.random() * Math.PI * 2;
+      const v = Math.acos(2 * Math.random() - 1);
+      let nx = Math.sin(v) * Math.cos(u);
+      let ny = Math.cos(v);
+      let nz = Math.sin(v) * Math.sin(u);
+
+      const groove = Math.sin(u * 2) * 0.04;
+      const germNotch = (ny < -0.55 && nx > 0.35) ? -0.14 : 0;
+      const grainNoise = (smoothNoise(nx * 5, ny * 5, nz * 5) - 0.5) * 0.04;
+      const r = 1.0 + groove + germNotch + grainNoise;
+
+      const x = nx * r * 0.84;
+      const y = ny * r * 1.52;
+      const z = nz * r * 0.72;
+
+      return {
+        pos: new THREE.Vector3(x * 0.96 - y * 0.22, x * 0.22 + y * 0.96, z),
+        normal: new THREE.Vector3(nx, ny, nz)
+      };
+    }, 0.021));
+
+    // SCAN 03: 呑符（護符と器）
+    clouds.push(buildPhotogrammetryCloud(22000, (i, total) => {
+      if (i < total * 0.48) {
+        const px = (Math.random() - 0.5) * 0.74;
+        const py = (Math.random() - 0.5) * 1.32;
+        const wave = Math.sin(py * 3.4) * 0.06 + (smoothNoise(px * 4, py * 4, 2.0) - 0.5) * 0.03;
+        const pos = new THREE.Vector3(px, py + 0.48, wave);
+        pos.applyAxisAngle(new THREE.Vector3(0, 1, 0), 0.28);
+
+        const distStamp = Math.hypot(px, py - 0.42);
+        const isStamp = distStamp > 0.105 && distStamp < 0.15;
+        const isTalismanRune = Math.abs(px) < 0.035 && py < 0.24 && py > -0.46;
+
+        return {
+          pos,
+          normal: new THREE.Vector3(0.2, 0.2, 1.0),
+          accent: (isStamp || isTalismanRune) ? 1 : 0
+        };
+      } else {
+        const t = Math.random();
+        const a = Math.random() * Math.PI * 2;
+        const wobble = (smoothNoise(Math.cos(a) * 3, t * 4, Math.sin(a) * 3) - 0.5) * 0.04;
+        const rad = 0.42 + Math.pow(t, 0.65) * 0.94 + wobble;
+        const y = -0.95 + t * 0.72;
+        return {
+          pos: new THREE.Vector3(Math.cos(a) * rad, y, Math.sin(a) * rad),
+          normal: new THREE.Vector3(Math.cos(a), 0.35, Math.sin(a))
+        };
+      }
+    }, 0.021));
+
+    // SCAN 04: 鏡餅
+    clouds.push(buildPhotogrammetryCloud(23000, (i, total) => {
+      const part = i / total;
+      const u = Math.random() * Math.PI * 2;
+      const v = Math.acos(2 * Math.random() - 1);
+      const nx = Math.sin(v) * Math.cos(u);
+      const ny = Math.cos(v);
+      const nz = Math.sin(v) * Math.sin(u);
+      const sag = (smoothNoise(nx * 3.5, ny * 3.5, nz * 3.5) - 0.5) * 0.06;
+
+      if (part < 0.52) {
+        const belly = ny < 0 ? 1.08 : 0.94;
+        return {
+          pos: new THREE.Vector3(nx * (1.18 * belly + sag), ny * 0.46 - 0.38, nz * (1.18 * belly + sag)),
+          normal: new THREE.Vector3(nx, ny * 1.4, nz)
+        };
+      } else if (part < 0.88) {
+        const belly = ny < 0 ? 1.06 : 0.95;
+        return {
+          pos: new THREE.Vector3(nx * (0.84 * belly + sag), ny * 0.42 + 0.22, nz * (0.84 * belly + sag)),
+          normal: new THREE.Vector3(nx, ny * 1.4, nz)
+        };
+      } else {
+        return {
+          pos: new THREE.Vector3(nx * 0.26, ny * 0.22 + 0.72, nz * 0.26),
+          normal: new THREE.Vector3(nx, ny, nz),
+          accent: ny > 0.25 ? 1 : 0
+        };
+      }
+    }, 0.021));
+
+    // SCAN 05: 爪の垢を煎じて飲む
+    clouds.push(buildPhotogrammetryCloud(23000, (i, total) => {
+      const rChoice = i / total;
+      if (rChoice < 0.62) {
+        const t = Math.random();
+        const a = Math.random() * Math.PI * 2;
+        const wheelGroove = Math.sin(t * 48) * 0.012;
+        const rad = 0.48 + Math.sin(t * Math.PI) * 0.48 + wheelGroove;
+        const y = -0.88 + t * 1.18;
+        return {
+          pos: new THREE.Vector3(Math.cos(a) * rad - 0.15, y, Math.sin(a) * rad),
+          normal: new THREE.Vector3(Math.cos(a), 0.2, Math.sin(a))
+        };
+      } else if (rChoice < 0.74) {
+        const t = Math.random();
+        const a = Math.random() * Math.PI * 2;
+        const rad = 0.13 * (1 - t * 0.45);
+        const local = new THREE.Vector3(Math.cos(a) * rad, (t - 0.5) * 0.62, Math.sin(a) * rad);
+        local.applyAxisAngle(new THREE.Vector3(0, 0, 1), -0.68);
+        local.add(new THREE.Vector3(0.55, -0.05, 0));
+        return {
+          pos: local,
+          normal: new THREE.Vector3(0.6, 0.6, 0.3)
+        };
+      } else {
+        const h = Math.random();
+        const a = Math.random() * Math.PI * 2 + h * 3.2;
+        const spread = 0.16 + Math.pow(h, 1.2) * 0.72;
+        const swirl = smoothNoise(h * 4, Math.cos(a) * 2, Math.sin(a) * 2) * 0.28;
+        return {
+          pos: new THREE.Vector3(
+            -0.15 + Math.cos(a) * (spread + swirl),
+            0.32 + h * 1.45,
+            Math.sin(a) * (spread + swirl)
+          ),
+          normal: new THREE.Vector3(0, 1, 0.4),
+          accent: (i % 3 === 0) ? 1 : 0
+        };
+      }
+    }, 0.021));
+
+    clouds.forEach((cloud, idx) => {
+      cloud.position.y = -idx * SPACING;
+      galleryGroup.add(cloud);
+    });
+
+    /**
+     * 4. スクロール＆空間トランジション制御
+     */
+    const tickEls = document.querySelectorAll('.tick');
+    const sections = document.querySelectorAll('.specimen-section');
+    const discourseEl = document.getElementById('discourseSpace');
+    const manifestoLines = document.querySelectorAll('.manifesto-line');
+
+    let smoothScrollIdx = 0;
+    let activeArchiveSpecimen = 0;
+
+    function handleScroll() {
+      const vh = window.innerHeight;
+      const discourseTop = discourseEl.getBoundingClientRect().top;
+
+      const isGreen = discourseTop < vh * 0.55;
+      document.body.classList.toggle('green-phase', isGreen);
+
+      const secH = sections[0].offsetHeight || vh * 1.12;
+      const currentIdx = Math.max(0, Math.min(SPECIMENS.length - 1, Math.round(window.scrollY / secH)));
+      tickEls.forEach((t, i) => t.classList.toggle('active', i === currentIdx));
+
+      manifestoLines.forEach(line => {
+        const rect = line.getBoundingClientRect();
+        const inView = rect.top < vh * 0.76 && rect.bottom > vh * 0.22;
+        line.classList.toggle('in-focus', inView);
+      });
+    }
+
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    window.addEventListener('resize', () => {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+    });
+
+    /**
+     * 5. レンダリングループ
+     */
+    const clock = new THREE.Clock();
+
+    function animate() {
+      requestAnimationFrame(animate);
+      const t = clock.getElapsedTime();
+      const isGreen = document.body.classList.contains('green-phase');
+
+      const secH = sections[0].offsetHeight || window.innerHeight * 1.12;
+      const targetIdx = isGreen ? activeArchiveSpecimen : window.scrollY / secH;
+      smoothScrollIdx += (targetIdx - smoothScrollIdx) * 0.08;
+
+      galleryGroup.position.y = smoothScrollIdx * SPACING;
+
+      clouds.forEach((cloud, idx) => {
+        const dist = smoothScrollIdx - idx;
+        cloud.rotation.y = t * 0.22 + dist * 1.35;
+        cloud.rotation.x = Math.sin(t * 0.5 + idx) * 0.05 + dist * 0.2;
+        cloud.position.y = -idx * SPACING + Math.sin(t * 0.9 + idx) * 0.05;
+        cloud.visible = Math.abs(dist) < 1.3;
+      });
+
+      renderer.render(scene, camera);
+    }
+
+    handleScroll();
+    animate();
+  </script>
+</body>
+</html>
